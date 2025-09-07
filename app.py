@@ -48,15 +48,45 @@ def predict():
         data = request.get_json()
         review = data.get("review")
 
+        # 1. Check if empty
         if not review or review.strip() == "":
-            return jsonify({"sentiment": "Error", "confidence": 0, "message": "Please enter a valid review."})
+            return jsonify({
+                "sentiment": "Error",
+                "confidence": 0,
+                "message": "Please enter a valid review."
+            })
 
-        # Transform review and predict
+        # 2. Basic validation - check if review is meaningful
+        words = review.split()
+        if len(words) < 3 or not any(c.isalpha() for c in review):
+            return jsonify({
+                "sentiment": "Error",
+                "confidence": 0,
+                "message": "Please enter a correct restaurant review."
+            })
+
+        # 3. Keyword validation (restaurant-related words)
+        keywords = [
+            "food", "taste", "service", "restaurant", "staff",
+            "meal", "dinner", "lunch", "breakfast", "dish",
+            "menu", "drinks", "coffee", "waiter", "ambience",
+            "atmosphere", "chef", "snacks", "cuisine", "buffet"
+        ]
+
+        review_lower = review.lower()
+        if not any(word in review_lower for word in keywords):
+            return jsonify({
+                "sentiment": "Error",
+                "confidence": 0,
+                "message": "Please enter a correct restaurant review."
+            })
+
+        # 4. Transform review and predict
         review_vec = vectorizer.transform([review])
         prediction = model.predict(review_vec)[0]
         proba = model.predict_proba(review_vec).max() * 100
 
-        # Message based on sentiment
+        # 5. Message based on sentiment
         if prediction == "Positive":
             message = "Great! Keep visiting and enjoy more delicious food."
         elif prediction == "Negative":
@@ -64,7 +94,7 @@ def predict():
         else:
             message = "It seems like you had an average experience."
 
-        # Save review to database
+        # 6. Save review to database
         save_review_to_db(review, prediction, round(proba, 2))
 
         return jsonify({
@@ -74,7 +104,11 @@ def predict():
         })
 
     except Exception as e:
-        return jsonify({"sentiment": "Error", "confidence": 0, "message": str(e)})
+        return jsonify({
+            "sentiment": "Error",
+            "confidence": 0,
+            "message": str(e)
+        })
 
 # Endpoint to view all past reviews
 @app.route("/history", methods=["GET"])
